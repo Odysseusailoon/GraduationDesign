@@ -5,21 +5,21 @@ use rand::prelude::*;
 pub const SLOT_COUNT: usize = 1;
 pub const T_COUNT: usize = 500;
 pub const EDGE_COUNT: usize = 25;
-pub const V: u32 = 50;
-pub const E_MAX: u32 = 2; //can be a var, remember.
-                          //initial the backlog queue;
-pub static mut Q_T: u32 = 0;
+pub const TASK_COUNT: usize = 10000;
 pub static mut CURRENT_SLOT: usize = 0;
 
-pub const TASK_COUNT: usize = 10000;
+pub const V: u32 = 50;
+pub const E_MAX: u32 = 2; //can be a var, remember.
+pub static mut Q_T: u32 = 0;
+pub const TAO: f32 = 0.1; //parameters for markov approximation's random iteration
 
-//computation delay parameters;
-pub static mut EDGE_LAMBDA: [i32; EDGE_COUNT] = [0; EDGE_COUNT];
-pub static mut REQUIRED_PRODUCTIVITY: [i32; TASK_COUNT] = [0; TASK_COUNT];
-pub static mut PROFITS: [i332; TASK_COUNT] = [0; TASK_COUNT];
-//trans delay parameters;
-pub static mut DATA_SIZE: [i32; TASK_COUNT] = [0; TASK_COUNT];
-pub static mut BANDWIDTH: [i32; EDGE_COUNT] = [0; EDGE_COUNT];
+///computation delay parameters;
+pub static mut EDGE_LAMBDA: [u32; EDGE_COUNT] = [0; EDGE_COUNT];
+pub static mut REQUIRED_PRODUCTIVITY: [u32; TASK_COUNT] = [0; TASK_COUNT];
+pub static mut PROFITS: [u32; TASK_COUNT] = [0; TASK_COUNT];
+///trans delay parameters;
+pub static mut DATA_SIZE: [u32; TASK_COUNT] = [0; TASK_COUNT];
+pub static mut BANDWIDTH: [u32; EDGE_COUNT] = [0; EDGE_COUNT];
 
 pub unsafe fn init_global_parameters() {
     //EDGE[10] = 1;
@@ -40,7 +40,7 @@ pub unsafe fn init_global_parameters() {
     for x in DATA_SIZE.iter_mut() {
         *x = rng.sample(distr_data);
     }
-    for x in 0..TASK_COUNT {
+    for x in PROFITS.iter_mut() {
         *x = rng.sample(distr_profits);
     }
 
