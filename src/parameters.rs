@@ -2,8 +2,8 @@ use rand::distributions::Uniform;
 use rand::prelude::*;
 
 //modeling;
-pub const SLOT_COUNT: usize = 1;
-pub const T_COUNT: usize = 500;
+pub const TSLOT_SIZE: usize = 1;
+pub const TIME_COUNT: usize = 500;
 pub const EDGE_COUNT: usize = 25;
 pub static mut CURRENT_SLOT: usize = 0;
 
@@ -54,17 +54,14 @@ pub unsafe fn init_global_parameters() {
     //EDGE[10] = 1;
     let mut rng = rand::thread_rng();
 
-    let distr_p = Uniform::new_inclusive(40, 100);
     let distr_s = Uniform::new_inclusive(20, 40);
-    let distr_data = Uniform::new_inclusive(20, 40);
     let distr_band = Uniform::new_inclusive(20, 40);
-    let distr_profits = Uniform::new_inclusive(50, 100);
 
     for x in EDGE_LAMBDA.iter_mut() {
         *x = rng.sample(distr_s);
     }
     for x in BANDWIDTH.iter_mut() {
-        *x = rng.sample(distr_b);
+        *x = rng.sample(distr_band);
     }
 
     //
