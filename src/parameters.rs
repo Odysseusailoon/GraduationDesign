@@ -23,15 +23,23 @@ pub struct Task {
     pub profits: u32,
     pub data_size: u32,
     pub edge_id: usize,
+    pub latency_t: u32, //use in greedy method;
 }
 
 impl Task {
-    pub fn new(required_productivity: u32, profits: u32, data_size: u32, edge_id: usize) -> Self {
+    pub fn new(
+        required_productivity: u32,
+        profits: u32,
+        data_size: u32,
+        edge_id: usize,
+        latency_t: u32,
+    ) -> Self {
         Self {
             required_productivity,
             profits,
             data_size,
             edge_id,
+            latency_t,
         }
     }
 
@@ -42,7 +50,7 @@ impl Task {
     */
 }
 
-pub unsafe fn init_global_parameters(tasks: &mut Vec<Task>) {
+pub unsafe fn init_global_parameters() {
     //EDGE[10] = 1;
     let mut rng = rand::thread_rng();
 
@@ -56,7 +64,7 @@ pub unsafe fn init_global_parameters(tasks: &mut Vec<Task>) {
         *x = rng.sample(distr_s);
     }
     for x in BANDWIDTH.iter_mut() {
-        *x = rng.sample(distr_band);
+        *x = rng.sample(distr_b);
     }
 
     //
