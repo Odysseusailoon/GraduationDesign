@@ -3,7 +3,6 @@ use rand::Rng;
 
 use crate::parameters::{Task, BANDWIDTH, CURRENT_SLOT, EDGE_COUNT, EDGE_LAMBDA, Q_T, V};
 use std::convert::TryInto;
-use std::env::temp_dir;
 use std::f32::consts::E;
 
 //initial the task distribution, describe how the edges generate task locally;
@@ -43,7 +42,7 @@ pub unsafe fn task_distribution_after_dispatch(dist: &Vec<Vec<Task>>) -> Vec<Vec
     dist_dispatch
 }
 
-pub unsafe fn objective_function(dispatched: &Vec<Vec<Task>>, q_t: u32) -> u32 {
+pub unsafe fn objective_function(dispatched: &mut Vec<Vec<Task>>, q_t: u32) -> u32 {
     q_t * latency(dispatched) + V * profits(dispatched)
 }
 
@@ -60,15 +59,21 @@ pub unsafe fn latency_t(y: &mut Task, x_i: usize) -> u32 {
     y.latency_t
 }
 
-pub unsafe fn latency(mut dispatched: &Vec<Vec<Task>>) -> u32 {
-    // let mut compute_latency = 0u32;
-    // let mut trans_latency = 0u32;
+pub unsafe fn latency(dispatched: &mut Vec<Vec<Task>>) -> u32 {
+    let mut compute_latency = 0u32;
+    let mut trans_latency = 0u32;
     let mut latency = 0u32;
     //let task = Task::new();
     for (x_i, x) in dispatched.iter_mut().enumerate() {
         for y in x.iter_mut() {
-            y.latency_t = latency_t(y, x_i);
-            latency += y.latency_t;
+            let div = EDGE_LAMBDA[x_i];
+            compute_latency = y.required_productivity / div;
+            if x_i == y.edge_id {
+                trans_latency = 0;
+            } else {
+                trans_latency = y.data_size / BANDWIDTH[y.edge_id];
+            }
+            latency += trans_latency + compute_latency;
         }
     }
     latency
@@ -76,6 +81,9 @@ pub unsafe fn latency(mut dispatched: &Vec<Vec<Task>>) -> u32 {
 
 pub unsafe fn profits(dispatched: &Vec<Vec<Task>>) -> u32 {
     let mut dc_profits = 0;
+    if dispatched.len() == 24 {
+        println!("");
+    }
     for x in dispatched[24].iter() {
         dc_profits += x.profits;
     }
@@ -86,11 +94,11 @@ pub unsafe fn greedy_approximation(mut dist_t: Vec<Vec<Task>>, q_t: u32) -> (u32
     // let mut rng = rand::thread_rng();
     //let mut stop_flag = false;
 
-    let mut old_val = objective_function(&dist_t, q_t);
+    let mut old_val = objective_function(&mut dist_t, q_t);
     let origin_data_record = old_val;
     // origin_data_record.push(old_val);
 
-    let mut data_record = Vec::new();
+    // let mut data_record = Vec::new();
     // let mut iteration = 0;
     let mut random_edge = 0;
     // let random_edge = 0;
@@ -99,9 +107,10 @@ pub unsafe fn greedy_approximation(mut dist_t: Vec<Vec<Task>>, q_t: u32) -> (u32
     loop {
         new_dispatched = dist_t.clone();
         // iteration += 1;
-        let mut current_edge = dist_t.remove(random_edge);
+        let mut current_edge = &dist_t[random_edge];
         new_dispatched[random_edge].clear();
-        for task in current_edge.iter_mut() {
+        for task_ref in current_edge.iter() {
+            let mut task = *task_ref;
             // let new_edge = rng.gen_range(0, EDGE_COUNT);
             // new_dispatched[new_edge].push(*task);
             let mut new_edge: usize = random_edge;
@@ -109,8 +118,8 @@ pub unsafe fn greedy_approximation(mut dist_t: Vec<Vec<Task>>, q_t: u32) -> (u32
             let mut tmp_latency_t = 0;
 
             while edge_iter < EDGE_COUNT {
+                tmp_latency_t = latency_t(&mut task, edge_iter);
                 edge_iter += 1;
-                tmp_latency_t = latency_t(task, edge_iter);
                 if tmp_latency_t >= task.latency_t {
                     continue;
                 } else {
@@ -118,10 +127,10 @@ pub unsafe fn greedy_approximation(mut dist_t: Vec<Vec<Task>>, q_t: u32) -> (u32
                     new_edge = edge_iter;
                 }
             }
-            new_dispatched[new_edge].push(*task)
+            new_dispatched[new_edge].push(task)
         }
 
-        old_val = old_val.max(objective_function(&new_dispatched, q_t));
+        old_val = old_val.max(objective_function(&mut new_dispatched, q_t));
         //data_record.push(new_val);
         random_edge += 1;
         if random_edge == EDGE_COUNT {
@@ -131,35 +140,35 @@ pub unsafe fn greedy_approximation(mut dist_t: Vec<Vec<Task>>, q_t: u32) -> (u32
         }
     }
     // data_record.push(old_val);
-    (latency(&new_dispatched), old_val, origin_data_record)
+    (latency(&mut new_dispatched), old_val, origin_data_record)
 }
 
 pub unsafe fn markov_approximation(mut dispatched: Vec<Vec<Task>>, q_t: u32) -> (u32, u32, u32) {
     let mut rng = rand::thread_rng();
     let mut stop_flag = false;
 
-    let mut old_val = objective_function(&dispatched, q_t);
+    let mut old_val = objective_function(&mut dispatched, q_t);
     let origin_data_record = old_val;
 
-    let mut data_record = Vec::new();
+    // let mut data_record = Vec::new();
     let mut iteration = 0;
-    let mut new_dispatched = Default::default();
+    // new_dispatched = dispatched.clone();
 
     while !stop_flag {
+        let mut new_dispatched = dispatched.clone();
         iteration += 1;
-        new_dispatched = dispatched.clone();
         let random_edge = rng.gen_range(0, EDGE_COUNT); //randomly choose one edge-cloud sever to do markov approximation
-        let current_edge = dispatched.remove(random_edge);
+        let current_edge = &dispatched[random_edge];
         new_dispatched[random_edge].clear();
         for task in current_edge.iter() {
             let new_edge = rng.gen_range(0, EDGE_COUNT);
             new_dispatched[new_edge].push(*task);
         }
 
-        let mut new_val = objective_function(&new_dispatched, q_t); //evaluate the new answer
+        let mut new_val = objective_function(&mut new_dispatched, q_t); //evaluate the new answer
         if iteration < 300 {
             //the probability of accepting present shuffled configuration
-            let mumu = 1.0 / (1.0 + E.powi((new_val - old_val).try_into().unwrap()));
+            let mumu = 1.0 / (1.0 + E.powi(new_val as i32 - old_val as i32));
             let tmp: f32 = rng.gen();
             if mumu < tmp {
                 old_val = new_val;
@@ -171,5 +180,5 @@ pub unsafe fn markov_approximation(mut dispatched: Vec<Vec<Task>>, q_t: u32) -> 
     }
 
     // data_record.push(old_val);
-    (latency(&new_dispatched), old_val, origin_data_record)
+    (latency(&mut dispatched), old_val, origin_data_record)
 }
